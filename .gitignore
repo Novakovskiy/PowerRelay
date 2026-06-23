@@ -37,8 +37,6 @@ sdkconfig.old
 sdkconfig~
 esp-idf/
 
-# Generated files
-main/favicon_data.h
 
 # Logs
 *.log
