@@ -45,25 +45,25 @@ const uint8_t FAVICON_ICO[] = {{
     with open(output_file, 'w') as f:
         f.write(header_content)
 
-    print(f"✓ Generated {output_file} ({len(data)} bytes)")
+    print("[+] Generated {} ({} bytes)".format(output_file, len(data)))
 
 
 def main():
     if len(sys.argv) != 3:
-        print(f"Usage: {sys.argv[0]} <input_favicon.ico> <output_favicon_data.h>")
+        print("Usage: {} <input_favicon.ico> <output_favicon_data.h>".format(sys.argv[0]))
         sys.exit(1)
 
     input_file = sys.argv[1]
     output_file = sys.argv[2]
 
     if not os.path.exists(input_file):
-        print(f"✗ Input file not found: {input_file}")
+        print("[-] Input file not found: {}".format(input_file))
         sys.exit(1)
 
     try:
         generate_favicon_header(input_file, output_file)
     except Exception as e:
-        print(f"✗ Error: {e}")
+        print("[!] Error: {}".format(e))
         sys.exit(1)
 
 
