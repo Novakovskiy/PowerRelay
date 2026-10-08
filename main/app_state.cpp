@@ -1,0 +1,183 @@
+#include "app_state.h"
+
+#include <cstdlib>
+#include <cstring>
+
+#include "esp_err.h"
+#include "esp_log.h"
+#include "nvs.h"
+
+namespace powerrelay {
+
+PersistentConfig gConfig{};
+httpd_handle_t gHttpServer = nullptr;
+esp_mqtt_client_handle_t gMqttClient = nullptr;
+
+bool gRelayStateOn = false;
+bool gStatusLedStateOn = false;
+bool gStaConnected = false;
+bool gAccessPointMode = false;
+
+int64_t gLastStatusToggleUs = 0;
+int64_t gLastWifiRetryCheckUs = 0;
+int64_t gLastMqttAttemptUs = 0;
+int64_t gBootPressedSinceUs = 0;
+bool gBootResetTriggered = false;
+
+void safe_copy(char* dst, size_t dstSize, const std::string& src) {
+    if (dstSize == 0) {
+        return;
+    }
+
+    std::strncpy(dst, src.c_str(), dstSize - 1);
+    dst[dstSize - 1] = '\0';
+}
+
+std::string trim_copy(const char* value) {
+    if (value == nullptr) {
+        return "";
+    }
+
+    std::string out(value);
+    while (!out.empty() && (out.front() == ' ' || out.front() == '\t' || out.front() == '\n' || out.front() == '\r')) {
+        out.erase(out.begin());
+    }
+    while (!out.empty() && (out.back() == ' ' || out.back() == '\t' || out.back() == '\n' || out.back() == '\r')) {
+        out.pop_back();
+    }
+    return out;
+}
+
+std::string sanitize_hostname(const char* raw) {
+    std::string input = trim_copy(raw);
+    std::string out;
+
+    for (char c : input) {
+        bool isAlphaNum =
+            (c >= 'a' && c <= 'z') ||
+            (c >= 'A' && c <= 'Z') ||
+            (c >= '0' && c <= '9');
+        if (isAlphaNum || c == '-') {
+            out.push_back(c);
+        }
+    }
+
+    while (!out.empty() && out.front() == '-') {
+        out.erase(out.begin());
+    }
+    while (!out.empty() && out.back() == '-') {
+        out.pop_back();
+    }
+
+    if (out.empty()) {
+        out = "PowerRelay";
+    }
+
+    if (out.size() > 32) {
+        out.resize(32);
+    }
+    return out;
+}
+
+std::string to_lowercase(std::string str) {
+    for (char& c : str) {
+        if (c >= 'A' && c <= 'Z') {
+            c = static_cast<char>(c - 'A' + 'a');
+        }
+    }
+    return str;
+}
+
+void init_default_config(PersistentConfig& cfg) {
+    std::memset(&cfg, 0, sizeof(cfg));
+    cfg.wifiReconnectIntervalMs = 30000;
+    std::strncpy(cfg.wifiSsid, "InterPol", sizeof(cfg.wifiSsid) - 1);
+    std::strncpy(cfg.wifiPassword, "Qwpo1209_!", sizeof(cfg.wifiPassword) - 1);
+    std::strncpy(cfg.hostName, "Power Relay", sizeof(cfg.hostName) - 1);
+    cfg.uartControl = 0;
+    cfg.uartTimeout = 30000;
+    cfg.mqttEnabled = 0;
+    cfg.mqttPort = 1883;
+    cfg.mqttHaDiscovery = 0;
+    std::strncpy(cfg.mqttBaseTopic, "power_relay", sizeof(cfg.mqttBaseTopic) - 1);
+}
+
+void sanitize_config(PersistentConfig& cfg) {
+    cfg.wifiSsid[sizeof(cfg.wifiSsid) - 1] = '\0';
+    cfg.wifiPassword[sizeof(cfg.wifiPassword) - 1] = '\0';
+    cfg.hostName[sizeof(cfg.hostName) - 1] = '\0';
+    cfg.mqttHost[sizeof(cfg.mqttHost) - 1] = '\0';
+    cfg.mqttUser[sizeof(cfg.mqttUser) - 1] = '\0';
+    cfg.mqttPassword[sizeof(cfg.mqttPassword) - 1] = '\0';
+    cfg.mqttBaseTopic[sizeof(cfg.mqttBaseTopic) - 1] = '\0';
+
+    if (cfg.wifiReconnectIntervalMs < WIFI_RECONNECT_MIN_MS) {
+        cfg.wifiReconnectIntervalMs = WIFI_RECONNECT_MIN_MS;
+    }
+    if (cfg.uartControl > 1) {
+        cfg.uartControl = 0;
+    }
+    if (cfg.uartTimeout < UART_TIMEOUT_MIN_MS || cfg.uartTimeout > UART_TIMEOUT_MAX_MS) {
+        cfg.uartTimeout = 30000;
+    }
+    if (cfg.mqttPort == 0) {
+        cfg.mqttPort = 1883;
+    }
+    if (std::strlen(cfg.hostName) == 0) {
+        std::strncpy(cfg.hostName, "Power Relay", sizeof(cfg.hostName) - 1);
+        cfg.hostName[sizeof(cfg.hostName) - 1] = '\0';
+    }
+}
+
+void save_config_nvs() {
+    sanitize_config(gConfig);
+
+    nvs_handle_t handle = 0;
+    if (nvs_open(NVS_NAMESPACE, NVS_READWRITE, &handle) != ESP_OK) {
+        ESP_LOGE(TAG, "nvs_open failed");
+        return;
+    }
+
+    esp_err_t err = nvs_set_blob(handle, "cfg", &gConfig, sizeof(gConfig));
+    if (err == ESP_OK) {
+        err = nvs_commit(handle);
+    }
+    nvs_close(handle);
+
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to save config: %s", esp_err_to_name(err));
+    }
+}
+
+void load_config_nvs() {
+    nvs_handle_t handle = 0;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &handle);
+    if (err != ESP_OK) {
+        init_default_config(gConfig);
+        return;
+    }
+
+    size_t blob_size = sizeof(gConfig);
+    err = nvs_get_blob(handle, "cfg", &gConfig, &blob_size);
+
+    if (err != ESP_OK || blob_size != sizeof(gConfig)) {
+        init_default_config(gConfig);
+        nvs_set_blob(handle, "cfg", &gConfig, sizeof(gConfig));
+        nvs_commit(handle);
+    }
+
+    nvs_close(handle);
+    sanitize_config(gConfig);
+}
+
+void set_relay(bool on) {
+    gRelayStateOn = on;
+    gpio_set_level(PIN_POWER_SW, gRelayStateOn ? 1 : 0);
+}
+
+void toggle_relay() {
+    set_relay(!gRelayStateOn);
+}
+
+}  // namespace powerrelay
+

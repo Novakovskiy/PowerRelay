@@ -4,14 +4,14 @@ A web-based relay control device powered by ESP32, with MQTT support and web int
 
 ## Features
 
+- ✅ **WiFi Connectivity** - Both Station and Access Point modes
 - ✅ **Web Interface** - Control relay via HTTP(S) web page
 - ✅ **MQTT Support** - Remote control via MQTT protocol
-- ✅ **WiFi Connectivity** - Both Station and Access Point modes
+- ✅ **Home Assistant Discovery** - Auto-discovery for Home Assistant
 - ✅ **Configuration Dashboard** - Customize settings via web interface
 - ✅ **Status LED** - Visual feedback of device status
 - ✅ **Hardware Button** - Physical power button control
 - ✅ **UART Control** - Command-line interface (optional)
-- ✅ **Home Assistant Discovery** - Auto-discovery for Home Assistant
 - ✅ **Favicon Embedded** - Custom favicon in firmware
 
 ## Hardware Requirements
