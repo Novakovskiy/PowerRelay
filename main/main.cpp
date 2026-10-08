@@ -43,6 +43,7 @@ extern "C" void app_main() {
 
     // Keep boot/runtime UART output compact unless a warning/error happens.
     esp_log_level_set("*", ESP_LOG_WARN);
+    esp_log_level_set(TAG, ESP_LOG_INFO);
 
     load_config_nvs();
     configure_gpio();
