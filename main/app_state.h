@@ -72,8 +72,10 @@ void save_config_nvs();
 void load_config_nvs();
 
 void set_relay(bool on);
+void set_relay_from_uart(bool on);
 void toggle_relay();
+void process_relay_timers();
+bool is_relay_off_pending();
+uint32_t relay_off_pending_ms();
 
 }  // namespace powerrelay
-
-

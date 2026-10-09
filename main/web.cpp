@@ -36,7 +36,14 @@ esp_err_t handle_favicon(httpd_req_t* req) {
 }
 
 esp_err_t handle_status(httpd_req_t* req) {
-    return send_json(req, std::string(R"({"powerOn":)") + (gRelayStateOn ? "true" : "false") + "}");
+    std::string json = R"({"powerOn":)";
+    json += (gRelayStateOn ? "true" : "false");
+    json += R"(,"pendingOff":)";
+    json += (is_relay_off_pending() ? "true" : "false");
+    json += R"(,"pendingOffMs":)";
+    json += std::to_string(relay_off_pending_ms());
+    json += "}";
+    return send_json(req, json);
 }
 
 esp_err_t handle_get_settings(httpd_req_t* req) {
@@ -157,5 +164,4 @@ void start_http_server() {
 }
 
 }  // namespace powerrelay
-
 

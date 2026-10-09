@@ -146,15 +146,32 @@ void mqtt_publish_state(bool force) {
     lastState = gRelayStateOn;
 }
 
+void mqtt_publish_availability(bool force) {
+    static bool lastPendingOff = false;
+
+    if (gMqttClient == nullptr || gConfig.mqttEnabled == 0) {
+        return;
+    }
+
+    const bool pendingOff = is_relay_off_pending();
+    if (!force && pendingOff == lastPendingOff) {
+        return;
+    }
+
+    std::string topic = mqtt_topic_availability();
+    const char* payload = pendingOff ? "offline" : "online";
+    esp_mqtt_client_publish(gMqttClient, topic.c_str(), payload, 0, 1, 1);
+    lastPendingOff = pendingOff;
+}
+
 void mqtt_event_handler(void*, esp_event_base_t, int32_t event_id, void* event_data) {
     auto* event = static_cast<esp_mqtt_event_handle_t>(event_data);
 
     if (event_id == MQTT_EVENT_CONNECTED) {
         ESP_LOGW(TAG, "MQTT connected");
         std::string commandTopic = mqtt_base_topic() + "/set";
-        std::string availTopic = mqtt_base_topic() + "/availability";
         esp_mqtt_client_subscribe(gMqttClient, commandTopic.c_str(), 1);
-        esp_mqtt_client_publish(gMqttClient, availTopic.c_str(), "online", 0, 1, 1);
+        mqtt_publish_availability(true);
         mqtt_publish_discovery();
         mqtt_publish_state(true);
         return;
@@ -186,12 +203,15 @@ void mqtt_event_handler(void*, esp_event_base_t, int32_t event_id, void* event_d
             data = to_lowercase(data);
             if (data == "on" || data == "1" || data == "true") {
                 set_relay(true);
+                mqtt_publish_availability(true);
                 mqtt_publish_state(true);
             } else if (data == "off" || data == "0" || data == "false") {
                 set_relay(false);
+                mqtt_publish_availability(true);
                 mqtt_publish_state(true);
             } else if (data == "toggle" || data == "power") {
                 toggle_relay();
+                mqtt_publish_availability(true);
                 mqtt_publish_state(true);
             } else {
                 ESP_LOGW(TAG, "Unsupported MQTT command payload: '%s'", data.c_str());

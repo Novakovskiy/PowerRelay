@@ -102,6 +102,15 @@ Replace `/dev/ttyUSB0` with your serial port (e.g., `COM3` on Windows).
 mosquitto_pub -h mqtt.example.com -t power_relay/set -m "ON"
 ```
 
+### UART Control Behavior
+
+When **Use UART control** is enabled in Settings:
+
+- On relay ON, firmware sends `power_on` over UART.
+- On relay OFF request, firmware sends `power_off`, waits for **Delay before shutdown**, then switches relay output off.
+- Firmware listens for UART commands and applies the same ON/OFF logic for incoming `power_on` and `power_off`.
+- During this shutdown delay, MQTT availability is set to `offline`, so Home Assistant shows the entity as temporarily unavailable and blocks toggling until timeout completes.
+
 ## API Endpoints
 
 | Endpoint | Method | Purpose |
@@ -256,4 +265,3 @@ See [GitHub Releases](https://github.com/YOUR_USERNAME/PowerRelay/releases) for 
 **Last Updated**: 2026-06-24  
 **ESP-IDF Version**: 6.0.1  
 **Target Device**: ESP32
-

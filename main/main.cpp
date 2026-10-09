@@ -19,8 +19,11 @@ namespace powerrelay {
     while (true) {
         process_boot_button();
         update_status_led();
+        uart_control_poll();
+        process_relay_timers();
         maybe_retry_wifi();
         mqtt_ensure_connected();
+        mqtt_publish_availability(false);
         mqtt_publish_state(false);
         vTaskDelay(pdMS_TO_TICKS(100));
     }
@@ -47,6 +50,7 @@ extern "C" void app_main() {
 
     load_config_nvs();
     configure_gpio();
+    uart_control_init();
 
     esp_netif_init();
     esp_event_loop_create_default();

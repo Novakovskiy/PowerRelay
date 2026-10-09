@@ -26,7 +26,8 @@ void configure_gpio() {
     input_cfg.pull_up_en = GPIO_PULLUP_ENABLE;
     gpio_config(&input_cfg);
 
-    set_relay(false);
+    gRelayStateOn = false;
+    gpio_set_level(PIN_POWER_SW, 0);
     gpio_set_level(PIN_STATUS_LED, 0);
 }
 
@@ -74,4 +75,3 @@ void process_boot_button() {
 }
 
 }  // namespace powerrelay
-

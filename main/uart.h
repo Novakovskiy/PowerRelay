@@ -2,8 +2,8 @@
 
 namespace powerrelay {
 
-// Reserved for UART-specific implementation split.
-// Current firmware keeps UART config/state in PersistentConfig.
+void uart_control_init();
+void uart_control_poll();
+void uart_control_send_power_state(bool on);
 
 }  // namespace powerrelay
-

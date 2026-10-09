@@ -81,6 +81,11 @@ const char INDEX_HTML[] = R"rawliteral(
     }
     button:hover { background: var(--btn-hover); }
     button:active { transform: scale(0.98); }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      background: #475569;
+    }
     .hint {
       margin-top: 14px;
       font-size: 0.86rem;
@@ -97,7 +102,7 @@ const char INDEX_HTML[] = R"rawliteral(
       <span>Power: <strong id="stateText">Off</strong></span>
     </div>
     <div class="grid">
-      <button onclick="sendCmd('on')">On/Off</button>
+      <button id="powerBtn" onclick="sendCmd('on')">On/Off</button>
     </div>
     <p class="hint"><a href="/settings" style="color:#93c5fd; text-decoration:none;">Settings</a></p>
   </main>
@@ -125,10 +130,22 @@ const char INDEX_HTML[] = R"rawliteral(
         const r = await fetch('/status');
         const data = await r.json();
         const on = !!data.powerOn;
+        const pendingOff = !!data.pendingOff;
+        const pendingOffMs = Number(data.pendingOffMs || 0);
         document.getElementById('dot').classList.toggle('on', on);
-        document.getElementById('stateText').textContent = on ? 'On' : 'Off';
+        const stateText = document.getElementById('stateText');
+        const powerBtn = document.getElementById('powerBtn');
+        powerBtn.disabled = pendingOff;
+
+        if (pendingOff) {
+          const seconds = Math.max(1, Math.ceil(pendingOffMs / 1000));
+          stateText.textContent = 'Off in ' + seconds + 's';
+        } else {
+          stateText.textContent = on ? 'On' : 'Off';
+        }
       } catch (_) {
         document.getElementById('stateText').textContent = 'N/A';
+        document.getElementById('powerBtn').disabled = true;
       }
     }
 
@@ -310,7 +327,7 @@ const char SETTINGS_HTML[] = R"rawliteral(
           <label class="check"><input id="uartControl" name="uartControl" type="checkbox"> Use UART control</label>
         </div>
         <div class="field">
-          <label for="uartTimeout">Timeout (sec)</label>
+          <label for="uartTimeout">Delay before shutdown (sec)</label>
           <input id="uartTimeout" name="uartTimeout" type="number" min="10" max="600">
         </div>
       </div>

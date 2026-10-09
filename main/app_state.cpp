@@ -3,8 +3,12 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "uart.h"
+
+#include "driver/gpio.h"
 #include "esp_err.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "nvs.h"
 
 namespace powerrelay {
@@ -23,6 +27,51 @@ int64_t gLastWifiRetryCheckUs = 0;
 int64_t gLastMqttAttemptUs = 0;
 int64_t gBootPressedSinceUs = 0;
 bool gBootResetTriggered = false;
+
+namespace {
+
+bool gPendingRelayOff = false;
+int64_t gPendingRelayOffAtUs = 0;
+
+void apply_relay_output(bool on) {
+    gRelayStateOn = on;
+    gpio_set_level(PIN_POWER_SW, gRelayStateOn ? 1 : 0);
+}
+
+void schedule_relay_off() {
+    uint32_t timeoutMs = gConfig.uartTimeout;
+    if (timeoutMs < UART_TIMEOUT_MIN_MS || timeoutMs > UART_TIMEOUT_MAX_MS) {
+        timeoutMs = 30000;
+    }
+    gPendingRelayOff = true;
+    gPendingRelayOffAtUs = esp_timer_get_time() + static_cast<int64_t>(timeoutMs) * 1000;
+}
+
+void set_relay_internal(bool on, bool emitUartMessage) {
+    if (on) {
+        gPendingRelayOff = false;
+        gPendingRelayOffAtUs = 0;
+        if (emitUartMessage && gConfig.uartControl) {
+            uart_control_send_power_state(true);
+        }
+        apply_relay_output(true);
+        return;
+    }
+
+    if (gConfig.uartControl) {
+        if (emitUartMessage) {
+            uart_control_send_power_state(false);
+        }
+        schedule_relay_off();
+        return;
+    }
+
+    gPendingRelayOff = false;
+    gPendingRelayOffAtUs = 0;
+    apply_relay_output(false);
+}
+
+}  // namespace
 
 void safe_copy(char* dst, size_t dstSize, const std::string& src) {
     if (dstSize == 0) {
@@ -171,13 +220,48 @@ void load_config_nvs() {
 }
 
 void set_relay(bool on) {
-    gRelayStateOn = on;
-    gpio_set_level(PIN_POWER_SW, gRelayStateOn ? 1 : 0);
+    set_relay_internal(on, true);
+}
+
+void set_relay_from_uart(bool on) {
+    set_relay_internal(on, false);
 }
 
 void toggle_relay() {
     set_relay(!gRelayStateOn);
 }
 
-}  // namespace powerrelay
+void process_relay_timers() {
+    if (!gPendingRelayOff) {
+        return;
+    }
 
+    int64_t now = esp_timer_get_time();
+    if (now < gPendingRelayOffAtUs) {
+        return;
+    }
+
+    gPendingRelayOff = false;
+    gPendingRelayOffAtUs = 0;
+    apply_relay_output(false);
+}
+
+bool is_relay_off_pending() {
+    return gPendingRelayOff;
+}
+
+uint32_t relay_off_pending_ms() {
+    if (!gPendingRelayOff) {
+        return 0;
+    }
+
+    int64_t now = esp_timer_get_time();
+    if (now >= gPendingRelayOffAtUs) {
+        return 0;
+    }
+
+    int64_t remainingUs = gPendingRelayOffAtUs - now;
+    return static_cast<uint32_t>(remainingUs / 1000);
+}
+
+}  // namespace powerrelay
