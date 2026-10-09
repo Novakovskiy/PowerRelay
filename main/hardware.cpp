@@ -44,9 +44,9 @@ void update_status_led() {
         return;
     }
 
-    int64_t now = esp_timer_get_time();
-    if (now - gLastStatusToggleUs >= STATUS_LED_BLINK_US) {
-        gLastStatusToggleUs = now;
+    int64_t now = esp_timer_get_time() / 1000;
+    if (now - gLastStatusToggleMs >= STATUS_LED_BLINK_MS) {
+        gLastStatusToggleMs = now;
         gStatusLedStateOn = !gStatusLedStateOn;
         gpio_set_level(PIN_STATUS_LED, gStatusLedStateOn ? 1 : 0);
     }
@@ -54,14 +54,14 @@ void update_status_led() {
 
 void process_boot_button() {
     bool pressed = gpio_get_level(PIN_BOOT_BUTTON) == 0;
-    int64_t now = esp_timer_get_time();
+    int64_t now = esp_timer_get_time() / 1000;
 
     if (pressed) {
-        if (gBootPressedSinceUs == 0) {
-            gBootPressedSinceUs = now;
+        if (gBootPressedSinceMs == 0) {
+            gBootPressedSinceMs = now;
         }
 
-        if (!gBootResetTriggered && now - gBootPressedSinceUs >= BUTTON_RESET_US) {
+        if (!gBootResetTriggered && now - gBootPressedSinceMs >= BUTTON_RESET_MS) {
             gBootResetTriggered = true;
             init_default_config(gConfig);
             save_config_nvs();
@@ -69,7 +69,7 @@ void process_boot_button() {
             esp_restart();
         }
     } else {
-        gBootPressedSinceUs = 0;
+        gBootPressedSinceMs = 0;
         gBootResetTriggered = false;
     }
 }

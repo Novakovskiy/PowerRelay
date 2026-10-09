@@ -95,19 +95,18 @@ void maybe_retry_wifi() {
         return;
     }
 
-    int64_t now = esp_timer_get_time();
-    if (now - gLastWifiRetryCheckUs < WIFI_RETRY_CHECK_US) {
+    int64_t now = esp_timer_get_time() / 1000;
+    if (now - gLastWifiRetryCheckMs < WIFI_RETRY_CHECK_MS) {
         return;
     }
-    gLastWifiRetryCheckUs = now;
+    gLastWifiRetryCheckMs = now;
 
-    static int64_t lastRetryUs = 0;
-    if (now - lastRetryUs >= static_cast<int64_t>(gConfig.wifiReconnectIntervalMs) * 1000) {
-        lastRetryUs = now;
+    static int64_t lastRetryMs = 0;
+    if (now - lastRetryMs >= static_cast<int64_t>(gConfig.wifiReconnectIntervalMs)) {
+        lastRetryMs = now;
         esp_wifi_connect();
     }
 }
 
 }  // namespace powerrelay
-
 

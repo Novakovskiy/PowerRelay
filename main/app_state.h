@@ -16,10 +16,10 @@ inline constexpr gpio_num_t PIN_POWER_SW = GPIO_NUM_2;
 inline constexpr gpio_num_t PIN_STATUS_LED = GPIO_NUM_4;
 inline constexpr gpio_num_t PIN_BOOT_BUTTON = GPIO_NUM_0;
 
-inline constexpr int64_t STATUS_LED_BLINK_US = 500000;
-inline constexpr int64_t BUTTON_RESET_US = 10000000;
-inline constexpr int64_t MQTT_RECONNECT_US = 10000000;
-inline constexpr int64_t WIFI_RETRY_CHECK_US = 500000;
+inline constexpr int64_t STATUS_LED_BLINK_MS = 500;
+inline constexpr int64_t BUTTON_RESET_MS = 10000;
+inline constexpr int64_t MQTT_RECONNECT_MS = 10000;
+inline constexpr int64_t WIFI_RETRY_CHECK_MS = 500;
 
 inline constexpr uint32_t WIFI_RECONNECT_MIN_MS = 10000;
 inline constexpr uint32_t UART_TIMEOUT_MIN_MS = 10000;
@@ -55,10 +55,10 @@ extern bool gStatusLedStateOn;
 extern bool gStaConnected;
 extern bool gAccessPointMode;
 
-extern int64_t gLastStatusToggleUs;
-extern int64_t gLastWifiRetryCheckUs;
-extern int64_t gLastMqttAttemptUs;
-extern int64_t gBootPressedSinceUs;
+extern int64_t gLastStatusToggleMs;
+extern int64_t gLastWifiRetryCheckMs;
+extern int64_t gLastMqttAttemptMs;
+extern int64_t gBootPressedSinceMs;
 extern bool gBootResetTriggered;
 
 void safe_copy(char* dst, size_t dstSize, const std::string& src);

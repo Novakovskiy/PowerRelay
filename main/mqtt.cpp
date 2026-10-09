@@ -230,11 +230,11 @@ void mqtt_ensure_connected() {
         return;
     }
 
-    int64_t now = esp_timer_get_time();
-    if (now - gLastMqttAttemptUs < MQTT_RECONNECT_US) {
+    int64_t now = esp_timer_get_time() / 1000;
+    if (now - gLastMqttAttemptMs < MQTT_RECONNECT_MS) {
         return;
     }
-    gLastMqttAttemptUs = now;
+    gLastMqttAttemptMs = now;
 
     std::string host = trim_copy(gConfig.mqttHost);
     if (host.empty()) {

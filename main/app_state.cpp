@@ -22,16 +22,20 @@ bool gStatusLedStateOn = false;
 bool gStaConnected = false;
 bool gAccessPointMode = false;
 
-int64_t gLastStatusToggleUs = 0;
-int64_t gLastWifiRetryCheckUs = 0;
-int64_t gLastMqttAttemptUs = 0;
-int64_t gBootPressedSinceUs = 0;
+int64_t gLastStatusToggleMs = 0;
+int64_t gLastWifiRetryCheckMs = 0;
+int64_t gLastMqttAttemptMs = 0;
+int64_t gBootPressedSinceMs = 0;
 bool gBootResetTriggered = false;
 
 namespace {
 
 bool gPendingRelayOff = false;
-int64_t gPendingRelayOffAtUs = 0;
+int64_t gPendingRelayOffAtMs = 0;
+
+int64_t now_ms() {
+    return esp_timer_get_time() / 1000;
+}
 
 void apply_relay_output(bool on) {
     gRelayStateOn = on;
@@ -44,13 +48,13 @@ void schedule_relay_off() {
         timeoutMs = 30000;
     }
     gPendingRelayOff = true;
-    gPendingRelayOffAtUs = esp_timer_get_time() + static_cast<int64_t>(timeoutMs) * 1000;
+    gPendingRelayOffAtMs = now_ms() + static_cast<int64_t>(timeoutMs);
 }
 
 void set_relay_internal(bool on, bool emitUartMessage) {
     if (on) {
         gPendingRelayOff = false;
-        gPendingRelayOffAtUs = 0;
+        gPendingRelayOffAtMs = 0;
         if (emitUartMessage && gConfig.uartControl) {
             uart_control_send_power_state(true);
         }
@@ -67,7 +71,7 @@ void set_relay_internal(bool on, bool emitUartMessage) {
     }
 
     gPendingRelayOff = false;
-    gPendingRelayOffAtUs = 0;
+    gPendingRelayOffAtMs = 0;
     apply_relay_output(false);
 }
 
@@ -140,8 +144,8 @@ std::string to_lowercase(std::string str) {
 void init_default_config(PersistentConfig& cfg) {
     std::memset(&cfg, 0, sizeof(cfg));
     cfg.wifiReconnectIntervalMs = 30000;
-    std::strncpy(cfg.wifiSsid, "InterPol", sizeof(cfg.wifiSsid) - 1);
-    std::strncpy(cfg.wifiPassword, "Qwpo1209_!", sizeof(cfg.wifiPassword) - 1);
+    std::strncpy(cfg.wifiSsid, "", sizeof(cfg.wifiSsid) - 1);
+    std::strncpy(cfg.wifiPassword, "", sizeof(cfg.wifiPassword) - 1);
     std::strncpy(cfg.hostName, "Power Relay", sizeof(cfg.hostName) - 1);
     cfg.uartControl = 0;
     cfg.uartTimeout = 30000;
@@ -236,13 +240,13 @@ void process_relay_timers() {
         return;
     }
 
-    int64_t now = esp_timer_get_time();
-    if (now < gPendingRelayOffAtUs) {
+    int64_t now = now_ms();
+    if (now < gPendingRelayOffAtMs) {
         return;
     }
 
     gPendingRelayOff = false;
-    gPendingRelayOffAtUs = 0;
+    gPendingRelayOffAtMs = 0;
     apply_relay_output(false);
 }
 
@@ -255,13 +259,13 @@ uint32_t relay_off_pending_ms() {
         return 0;
     }
 
-    int64_t now = esp_timer_get_time();
-    if (now >= gPendingRelayOffAtUs) {
+    int64_t now = now_ms();
+    if (now >= gPendingRelayOffAtMs) {
         return 0;
     }
 
-    int64_t remainingUs = gPendingRelayOffAtUs - now;
-    return static_cast<uint32_t>(remainingUs / 1000);
+    int64_t remainingMs = gPendingRelayOffAtMs - now;
+    return static_cast<uint32_t>(remainingMs);
 }
 
 }  // namespace powerrelay
