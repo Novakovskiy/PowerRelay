@@ -69,6 +69,13 @@ void process_boot_button() {
             esp_restart();
         }
     } else {
+        if (gBootPressedSinceMs != 0 && !gBootResetTriggered) {
+            int64_t pressDurationMs = now - gBootPressedSinceMs;
+            if (pressDurationMs >= BUTTON_SHORT_PRESS_MIN_MS && pressDurationMs < BUTTON_RESET_MS) {
+                toggle_relay();
+                mqtt_publish_state(true);
+            }
+        }
         gBootPressedSinceMs = 0;
         gBootResetTriggered = false;
     }

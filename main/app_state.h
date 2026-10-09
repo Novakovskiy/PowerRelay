@@ -17,7 +17,8 @@ inline constexpr gpio_num_t PIN_STATUS_LED = GPIO_NUM_4;
 inline constexpr gpio_num_t PIN_BOOT_BUTTON = GPIO_NUM_0;
 
 inline constexpr int64_t STATUS_LED_BLINK_MS = 500;
-inline constexpr int64_t BUTTON_RESET_MS = 10000;
+inline constexpr int64_t BUTTON_SHORT_PRESS_MIN_MS = 50;
+inline constexpr int64_t BUTTON_RESET_MS = 30000;
 inline constexpr int64_t MQTT_RECONNECT_MS = 10000;
 inline constexpr int64_t WIFI_RETRY_CHECK_MS = 500;
 
