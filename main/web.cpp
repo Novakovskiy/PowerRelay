@@ -11,7 +11,6 @@
 #include "freertos/task.h"
 
 #include "esp_http_server.h"
-#include "esp_log.h"
 #include "esp_system.h"
 
 #include "favicon_data.h"
@@ -147,7 +146,6 @@ void start_http_server() {
     cfg.max_uri_handlers = 16;
 
     if (httpd_start(&gHttpServer, &cfg) != ESP_OK) {
-        ESP_LOGE(TAG, "HTTP server start failed");
         return;
     }
 
@@ -164,4 +162,3 @@ void start_http_server() {
 }
 
 }  // namespace powerrelay
-

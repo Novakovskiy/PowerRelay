@@ -5,7 +5,6 @@
 #include "app_state.h"
 
 #include "esp_event.h"
-#include "esp_log.h"
 #include "esp_timer.h"
 
 namespace powerrelay {
@@ -13,25 +12,6 @@ namespace powerrelay {
 std::string mqtt_base_topic();
 
 namespace {
-
-const char* connack_to_text(int code) {
-    switch (code) {
-        case MQTT_CONNECTION_ACCEPTED:
-            return "accepted";
-        case MQTT_CONNECTION_REFUSE_PROTOCOL:
-            return "protocol";
-        case MQTT_CONNECTION_REFUSE_ID_REJECTED:
-            return "id_rejected";
-        case MQTT_CONNECTION_REFUSE_SERVER_UNAVAILABLE:
-            return "server_unavailable";
-        case MQTT_CONNECTION_REFUSE_BAD_USERNAME:
-            return "bad_username_or_password";
-        case MQTT_CONNECTION_REFUSE_NOT_AUTHORIZED:
-            return "not_authorized";
-        default:
-            return "unknown";
-    }
-}
 
 std::string mqtt_entity_id() {
     std::string source = mqtt_base_topic();
@@ -96,7 +76,6 @@ void mqtt_publish_discovery() {
     payload += R"("device":{"ids":[")" + entityId + R"("],"name":")" + deviceName + R"(","mdl":"Power Relay","mf":"PowerRelay"})";
     payload += "}";
 
-    ESP_LOGW(TAG, "Publishing Home Assistant discovery to %s", discoveryTopic.c_str());
     esp_mqtt_client_publish(gMqttClient, discoveryTopic.c_str(), payload.c_str(), 0, 1, 1);
 }
 
@@ -168,7 +147,6 @@ void mqtt_event_handler(void*, esp_event_base_t, int32_t event_id, void* event_d
     auto* event = static_cast<esp_mqtt_event_handle_t>(event_data);
 
     if (event_id == MQTT_EVENT_CONNECTED) {
-        ESP_LOGW(TAG, "MQTT connected");
         std::string commandTopic = mqtt_base_topic() + "/set";
         esp_mqtt_client_subscribe(gMqttClient, commandTopic.c_str(), 1);
         mqtt_publish_availability(true);
@@ -178,21 +156,10 @@ void mqtt_event_handler(void*, esp_event_base_t, int32_t event_id, void* event_d
     }
 
     if (event_id == MQTT_EVENT_DISCONNECTED) {
-        ESP_LOGW(TAG, "MQTT disconnected");
         return;
     }
 
     if (event_id == MQTT_EVENT_ERROR) {
-        if (event->error_handle == nullptr) {
-            ESP_LOGE(TAG, "MQTT error: missing error details");
-            return;
-        }
-
-        const int errorType = event->error_handle->error_type;
-        const int connack = event->error_handle->connect_return_code;
-        ESP_LOGE(TAG, "MQTT error: type=%d, connect_return_code=%d (%s), esp_tls_last_esp_err=0x%x, esp_tls_stack_err=0x%x, esp_transport_sock_errno=%d",
-                 errorType, connack, connack_to_text(connack), static_cast<unsigned>(event->error_handle->esp_tls_last_esp_err),
-                 static_cast<unsigned>(event->error_handle->esp_tls_stack_err), event->error_handle->esp_transport_sock_errno);
         return;
     }
 
@@ -213,8 +180,6 @@ void mqtt_event_handler(void*, esp_event_base_t, int32_t event_id, void* event_d
                 toggle_relay();
                 mqtt_publish_availability(true);
                 mqtt_publish_state(true);
-            } else {
-                ESP_LOGW(TAG, "Unsupported MQTT command payload: '%s'", data.c_str());
             }
         }
     }
@@ -260,18 +225,13 @@ void mqtt_ensure_connected() {
         cfg.credentials.authentication.password = pass.c_str();
     }
 
-    ESP_LOGW(TAG, "MQTT connecting to %s (username set: %s, password set: %s)", uri.c_str(), user.empty() ? "no" : "yes",
-             pass.empty() ? "no" : "yes");
-
     gMqttClient = esp_mqtt_client_init(&cfg);
     if (gMqttClient == nullptr) {
-        ESP_LOGE(TAG, "MQTT init failed");
         return;
     }
 
     esp_mqtt_client_register_event(gMqttClient, MQTT_EVENT_ANY, mqtt_event_handler, nullptr);
     if (esp_mqtt_client_start(gMqttClient) != ESP_OK) {
-        ESP_LOGE(TAG, "MQTT start failed");
         mqtt_disconnect();
     }
 }

@@ -7,7 +7,6 @@
 
 #include "driver/gpio.h"
 #include "esp_err.h"
-#include "esp_log.h"
 #include "esp_timer.h"
 #include "nvs.h"
 
@@ -187,7 +186,6 @@ void save_config_nvs() {
 
     nvs_handle_t handle = 0;
     if (nvs_open(NVS_NAMESPACE, NVS_READWRITE, &handle) != ESP_OK) {
-        ESP_LOGE(TAG, "nvs_open failed");
         return;
     }
 
@@ -196,10 +194,6 @@ void save_config_nvs() {
         err = nvs_commit(handle);
     }
     nvs_close(handle);
-
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to save config: %s", esp_err_to_name(err));
-    }
 }
 
 void load_config_nvs() {

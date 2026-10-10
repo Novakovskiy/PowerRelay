@@ -6,8 +6,8 @@
 #include "wifi.h"
 
 #include "esp_event.h"
-#include "esp_log.h"
 #include "esp_netif.h"
+#include "esp_task_wdt.h"
 #include "esp_wifi.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -16,6 +16,8 @@
 namespace powerrelay {
 
 [[noreturn]] void firmware_task(void*) {
+    (void)esp_task_wdt_add(nullptr);
+
     while (true) {
         process_boot_button();
         update_status_led();
@@ -25,6 +27,7 @@ namespace powerrelay {
         mqtt_ensure_connected();
         mqtt_publish_availability(false);
         mqtt_publish_state(false);
+        (void)esp_task_wdt_reset();
         vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
@@ -40,13 +43,15 @@ extern "C" void app_main() {
         err = nvs_flash_init();
     }
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "nvs_flash_init failed: %s", esp_err_to_name(err));
         return;
     }
 
-    // Keep boot/runtime UART output compact unless a warning/error happens.
-    esp_log_level_set("*", ESP_LOG_WARN);
-    esp_log_level_set(TAG, ESP_LOG_INFO);
+    const esp_task_wdt_config_t taskWdtConfig = {
+        .timeout_ms = 30000,
+        .idle_core_mask = 0,
+        .trigger_panic = true,
+    };
+    (void)esp_task_wdt_init(&taskWdtConfig);
 
     load_config_nvs();
     configure_gpio();

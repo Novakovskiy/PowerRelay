@@ -7,7 +7,6 @@
 
 #include "driver/uart.h"
 #include "esp_err.h"
-#include "esp_log.h"
 
 namespace powerrelay {
 
@@ -47,7 +46,6 @@ void process_uart_line(const std::string& line) {
         return;
     }
 
-    ESP_LOGW(TAG, "Unsupported UART command: '%s'", cmd.c_str());
 }
 
 }  // namespace
@@ -59,7 +57,6 @@ void uart_control_init() {
 
     esp_err_t err = uart_driver_install(UART_CONTROL_PORT, UART_RX_BUFFER_SIZE, UART_TX_BUFFER_SIZE, 0, nullptr, 0);
     if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
-        ESP_LOGE(TAG, "UART driver install failed: %s", esp_err_to_name(err));
         return;
     }
 
@@ -77,10 +74,7 @@ void uart_control_send_power_state(bool on) {
     }
 
     const char* payload = on ? "power_on\n" : "power_off\n";
-    int written = uart_write_bytes(UART_CONTROL_PORT, payload, std::strlen(payload));
-    if (written < 0) {
-        ESP_LOGE(TAG, "UART write failed");
-    }
+    (void)uart_write_bytes(UART_CONTROL_PORT, payload, std::strlen(payload));
 }
 
 void uart_control_poll() {
@@ -116,7 +110,6 @@ void uart_control_poll() {
     }
 
     if (gUartRxBuffer.size() > UART_LINE_BUFFER_MAX) {
-        ESP_LOGW(TAG, "UART input buffer overflow, dropping stale data");
         gUartRxBuffer.clear();
     }
 }
