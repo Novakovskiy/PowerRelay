@@ -145,5 +145,5 @@ main/
 
 ## Repository
 
-- Issues: https://github.com/Novakovskiy/PowerRelay/issues
-- Releases: https://github.com/Novakovskiy/PowerRelay/releases
+- Issues: https://github.com/Novakovskiy/PowerRelayESP32/issues
+- Releases: https://github.com/Novakovskiy/PowerRelayESP32/releases
