@@ -55,6 +55,7 @@ extern "C" void app_main() {
 
     load_config_nvs();
     configure_gpio();
+    apply_startup_relay_state(gConfig.powerOnByDefault != 0);
     uart_control_init();
 
     esp_netif_init();

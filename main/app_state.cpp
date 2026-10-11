@@ -32,6 +32,22 @@ namespace {
 bool gPendingRelayOff = false;
 int64_t gPendingRelayOffAtMs = 0;
 
+struct PersistentConfigV1 {
+    uint32_t wifiReconnectIntervalMs;
+    char wifiSsid[24];
+    char wifiPassword[24];
+    char hostName[24];
+    uint8_t uartControl;
+    uint32_t uartTimeout;
+    uint8_t mqttEnabled;
+    uint16_t mqttPort;
+    uint8_t mqttHaDiscovery;
+    char mqttHost[64];
+    char mqttUser[24];
+    char mqttPassword[24];
+    char mqttBaseTopic[48];
+};
+
 int64_t now_ms() {
     return esp_timer_get_time() / 1000;
 }
@@ -146,6 +162,7 @@ void init_default_config(PersistentConfig& cfg) {
     std::strncpy(cfg.wifiSsid, "", sizeof(cfg.wifiSsid) - 1);
     std::strncpy(cfg.wifiPassword, "", sizeof(cfg.wifiPassword) - 1);
     std::strncpy(cfg.hostName, "Power Relay", sizeof(cfg.hostName) - 1);
+    cfg.powerOnByDefault = 0;
     cfg.uartControl = 0;
     cfg.uartTimeout = 30000;
     cfg.mqttEnabled = 0;
@@ -165,6 +182,9 @@ void sanitize_config(PersistentConfig& cfg) {
 
     if (cfg.wifiReconnectIntervalMs < WIFI_RECONNECT_MIN_MS) {
         cfg.wifiReconnectIntervalMs = WIFI_RECONNECT_MIN_MS;
+    }
+    if (cfg.powerOnByDefault > 1) {
+        cfg.powerOnByDefault = 0;
     }
     if (cfg.uartControl > 1) {
         cfg.uartControl = 0;
@@ -204,15 +224,67 @@ void load_config_nvs() {
         return;
     }
 
-    size_t blob_size = sizeof(gConfig);
-    err = nvs_get_blob(handle, "cfg", &gConfig, &blob_size);
-
-    if (err != ESP_OK || blob_size != sizeof(gConfig)) {
+    size_t blob_size = 0;
+    err = nvs_get_blob(handle, "cfg", nullptr, &blob_size);
+    if (err != ESP_OK) {
         init_default_config(gConfig);
         nvs_set_blob(handle, "cfg", &gConfig, sizeof(gConfig));
         nvs_commit(handle);
+        nvs_close(handle);
+        sanitize_config(gConfig);
+        return;
     }
 
+    if (blob_size == sizeof(gConfig)) {
+        size_t currentSize = sizeof(gConfig);
+        err = nvs_get_blob(handle, "cfg", &gConfig, &currentSize);
+        if (err != ESP_OK) {
+            init_default_config(gConfig);
+            nvs_set_blob(handle, "cfg", &gConfig, sizeof(gConfig));
+            nvs_commit(handle);
+        }
+        nvs_close(handle);
+        sanitize_config(gConfig);
+        return;
+    }
+
+    if (blob_size == sizeof(PersistentConfigV1)) {
+        PersistentConfigV1 oldCfg{};
+        size_t oldSize = sizeof(oldCfg);
+        err = nvs_get_blob(handle, "cfg", &oldCfg, &oldSize);
+        if (err == ESP_OK) {
+            init_default_config(gConfig);
+            gConfig.wifiReconnectIntervalMs = oldCfg.wifiReconnectIntervalMs;
+            std::strncpy(gConfig.wifiSsid, oldCfg.wifiSsid, sizeof(gConfig.wifiSsid) - 1);
+            std::strncpy(gConfig.wifiPassword, oldCfg.wifiPassword, sizeof(gConfig.wifiPassword) - 1);
+            std::strncpy(gConfig.hostName, oldCfg.hostName, sizeof(gConfig.hostName) - 1);
+            gConfig.uartControl = oldCfg.uartControl;
+            gConfig.uartTimeout = oldCfg.uartTimeout;
+            gConfig.mqttEnabled = oldCfg.mqttEnabled;
+            gConfig.mqttPort = oldCfg.mqttPort;
+            gConfig.mqttHaDiscovery = oldCfg.mqttHaDiscovery;
+            std::strncpy(gConfig.mqttHost, oldCfg.mqttHost, sizeof(gConfig.mqttHost) - 1);
+            std::strncpy(gConfig.mqttUser, oldCfg.mqttUser, sizeof(gConfig.mqttUser) - 1);
+            std::strncpy(gConfig.mqttPassword, oldCfg.mqttPassword, sizeof(gConfig.mqttPassword) - 1);
+            std::strncpy(gConfig.mqttBaseTopic, oldCfg.mqttBaseTopic, sizeof(gConfig.mqttBaseTopic) - 1);
+            sanitize_config(gConfig);
+            nvs_set_blob(handle, "cfg", &gConfig, sizeof(gConfig));
+            nvs_commit(handle);
+            nvs_close(handle);
+            return;
+        }
+
+        init_default_config(gConfig);
+        nvs_set_blob(handle, "cfg", &gConfig, sizeof(gConfig));
+        nvs_commit(handle);
+        nvs_close(handle);
+        sanitize_config(gConfig);
+        return;
+    }
+
+    init_default_config(gConfig);
+    nvs_set_blob(handle, "cfg", &gConfig, sizeof(gConfig));
+    nvs_commit(handle);
     nvs_close(handle);
     sanitize_config(gConfig);
 }
@@ -223,6 +295,12 @@ void set_relay(bool on) {
 
 void set_relay_from_uart(bool on) {
     set_relay_internal(on, false);
+}
+
+void apply_startup_relay_state(bool on) {
+    gPendingRelayOff = false;
+    gPendingRelayOffAtMs = 0;
+    apply_relay_output(on);
 }
 
 void toggle_relay() {

@@ -217,6 +217,16 @@ const char SETTINGS_HTML[] = R"rawliteral(
       gap: 6px;
     }
     .field.full { grid-column: 1 / -1; }
+    .divider {
+      grid-column: 1 / -1;
+      margin-top: 6px;
+      padding-top: 10px;
+      border-top: 1px solid #334155;
+      color: var(--muted);
+      font-size: 0.82rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
     label {
       font-size: 0.9rem;
       color: var(--muted);
@@ -281,6 +291,7 @@ const char SETTINGS_HTML[] = R"rawliteral(
     <h1>Settings</h1>
     <form id="cfgForm">
       <div class="grid">
+        <div class="divider">Network</div>
         <div class="field">
           <label for="hostName" data-base-label="DHCP Hostname">Hostname</label>
           <input id="hostName" name="hostName" type="text" maxlength="24">
@@ -297,6 +308,7 @@ const char SETTINGS_HTML[] = R"rawliteral(
           <label for="wifiPassword" data-base-label="Wi-Fi Password">Wi-Fi Password</label>
           <input id="wifiPassword" name="wifiPassword" type="password" maxlength="24">
         </div>
+        <div class="divider">MQTT</div>
         <div class="field">
           <label class="check"><input id="mqttEnabled" name="mqttEnabled" type="checkbox"> Enable MQTT</label>
         </div>
@@ -323,6 +335,11 @@ const char SETTINGS_HTML[] = R"rawliteral(
           <label for="mqttBaseTopic" data-base-label="MQTT Base Topic">MQTT Base Topic</label>
           <input id="mqttBaseTopic" name="mqttBaseTopic" type="text" maxlength="48">
         </div>
+        <div class="divider">Relay</div>
+        <div class="field full">
+          <label class="check"><input id="powerOnByDefault" name="powerOnByDefault" type="checkbox"> Power enabled by default on startup</label>
+        </div>
+        <div class="divider">UART</div>
         <div class="field full">
           <label class="check"><input id="uartControl" name="uartControl" type="checkbox"> Use UART control</label>
         </div>
@@ -381,6 +398,7 @@ const char SETTINGS_HTML[] = R"rawliteral(
       document.getElementById('mqttPassword').value = data.mqttPassword || '';
       document.getElementById('mqttBaseTopic').value = data.mqttBaseTopic || 'pc_powerctrl';
       document.getElementById('mqttHaDiscovery').checked = data.mqttHaDiscovery !== false;
+      document.getElementById('powerOnByDefault').checked = !!data.powerOnByDefault;
       document.getElementById('uartControl').checked = !!data.uartControl;
       const uartTimeoutMs = Number(data.uartTimeout || 30000);
       const uartTimeoutSec = Math.max(10, Math.min(600, Math.round(uartTimeoutMs / 1000)));
@@ -427,6 +445,7 @@ const char SETTINGS_HTML[] = R"rawliteral(
       body.set('mqttPassword', document.getElementById('mqttPassword').value);
       body.set('mqttBaseTopic', document.getElementById('mqttBaseTopic').value);
       body.set('mqttHaDiscovery', document.getElementById('mqttHaDiscovery').checked ? '1' : '0');
+      body.set('powerOnByDefault', document.getElementById('powerOnByDefault').checked ? '1' : '0');
       body.set('uartControl', document.getElementById('uartControl').checked ? '1' : '0');
       const uartTimeoutSec = Number(document.getElementById('uartTimeout').value || 30);
       body.set('uartTimeout', String(Math.max(10, Math.min(600, Math.round(uartTimeoutSec))) * 1000));

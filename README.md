@@ -83,6 +83,7 @@ Settings include:
 - Host name
 - MQTT enable/host/port/user/password/base topic
 - Home Assistant discovery toggle
+- Power enabled by default on startup
 - UART control toggle
 - UART shutdown delay (seconds)
 

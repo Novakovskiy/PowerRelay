@@ -32,6 +32,7 @@ std::string json_from_config() {
     out += R"(,"wifiSsid":")" + json_escape(gConfig.wifiSsid) + R"(")";
     out += R"(,"wifiPassword":")" + json_escape(gConfig.wifiPassword) + R"(")";
     out += R"(,"hostName":")" + json_escape(gConfig.hostName) + R"(")";
+    out += R"(,"powerOnByDefault":)" + std::string(gConfig.powerOnByDefault ? "true" : "false");
     out += R"(,"uartControl":)" + std::string(gConfig.uartControl ? "true" : "false");
     out += R"(,"uartTimeout":)" + std::to_string(gConfig.uartTimeout);
     out += R"(,"mqttEnabled":)" + std::string(gConfig.mqttEnabled ? "true" : "false");
@@ -131,6 +132,9 @@ void apply_config_from_form(const std::string& body) {
     maybe_set_string("wifiPassword", gConfig.wifiPassword, sizeof(gConfig.wifiPassword));
     maybe_set_string("hostName", gConfig.hostName, sizeof(gConfig.hostName));
 
+    val = get_form_value(body, "powerOnByDefault");
+    if (!val.empty()) gConfig.powerOnByDefault = parse_bool_arg(val) ? 1 : 0;
+
     val = get_form_value(body, "uartControl");
     if (!val.empty()) gConfig.uartControl = parse_bool_arg(val) ? 1 : 0;
 
@@ -161,4 +165,3 @@ esp_err_t send_json(httpd_req_t* req, const std::string& text) {
 }
 
 }  // namespace powerrelay
-

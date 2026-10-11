@@ -36,6 +36,7 @@ struct PersistentConfig {
     char wifiSsid[24];
     char wifiPassword[24];
     char hostName[24];
+    uint8_t powerOnByDefault;
     uint8_t uartControl;
     uint32_t uartTimeout;
     uint8_t mqttEnabled;
@@ -74,6 +75,7 @@ void load_config_nvs();
 
 void set_relay(bool on);
 void set_relay_from_uart(bool on);
+void apply_startup_relay_state(bool on);
 void toggle_relay();
 void process_relay_timers();
 bool is_relay_off_pending();
